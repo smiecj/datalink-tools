@@ -16,6 +16,7 @@ func (backuper *Backuper) BackupMedia() (int, error) {
 	// 从指定环境，获取当前所有介质
 
 	// 保存配置到本地存储中
+	return 0, nil
 }
 
 // todo: 备份映射

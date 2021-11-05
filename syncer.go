@@ -5,13 +5,13 @@ type Syncer struct {
 	Option DatalinkOption
 }
 
-func GetSyncer(option DatalinkOption) *Backuper {
-	backuper := new(Backuper)
-	backuper.Option = option
-	return backuper
+func GetSyncer(option DatalinkOption) *Syncer {
+	syncer := new(Syncer)
+	syncer.Option = option
+	return syncer
 }
 
 // todo: 备份介质
-func (backuper *Backuper) BackupMedia() (int, error) {
-
+func (syncer *Syncer) SyncMedia() (int, error) {
+	return 0, nil
 }

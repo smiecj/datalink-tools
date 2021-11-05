@@ -4,7 +4,6 @@ package main
 import (
 	"flag"
 
-	"github.com/prometheus/common/log"
 	"github.com/smiecj/go_common/util/log"
 )
 
@@ -16,8 +15,7 @@ const (
 
 var (
 	command  = *flag.String("command", "show", "Command")
-	host     = *flag.String("host", "localhost", "datalink host")
-	port     = *flag.String("port", "18888", "datalink port")
+	address  = *flag.String("address", "http://localhost:18888", "datalink address")
 	username = *flag.String("username", "admin", "datalink login username")
 	password = *flag.String("password", "admin123", "datalink login password")
 )
@@ -28,8 +26,7 @@ func main() {
 		log.Info("This is datalink tools!")
 	case CommandBackup:
 		backuper := GetBackuper(DatalinkOption{
-			Host:     host,
-			Port:     port,
+			Address:  address,
 			Username: username,
 			Password: password,
 		})
@@ -41,13 +38,12 @@ func main() {
 			log.Info("[main] backup datalink media config success: %d", mediaCount)
 		}
 	case CommandSync:
-		backuper := GetBackuper(DatalinkOption{
-			Host:     host,
-			Port:     port,
+		syncer := GetSyncer(DatalinkOption{
+			Address:  address,
 			Username: username,
 			Password: password,
 		})
-		storageCount, err := backuper.BackupStorage()
+		storageCount, err := syncer.SyncMedia()
 		if nil != err {
 			log.Error("[main] backup datalink storage config failed: %s", err.Error())
 			return

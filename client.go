@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/smiecj/go_common/http"
+	http "github.com/smiecj/go_common/http"
 )
 
 type Client interface {
@@ -29,6 +29,7 @@ func (client *datalinkClient) login() (jsessionId string, err error) {
 	http.DoPostFormRequest(loginUrl, param)
 
 	// todo: 在本地进行 azkaban login 接口调用验证
+	return "", nil
 }
 
 func GetDataLinkClient(option DatalinkOption) *datalinkClient {
