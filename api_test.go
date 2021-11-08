@@ -7,13 +7,17 @@ import (
 	"github.com/smiecj/go_common/util/log"
 )
 
-func TestLogin(t *testing.T) {
+func TestLoginByHttpClient(t *testing.T) {
 	log.Info("[test] ready to login")
-	param := make(map[string]string)
-	param["loginEmail"] = "admin"
-	param["password"] = "admin123"
-	loginUrl := "http://azkaban_host/userReq/doLogin"
+	loginUrl := "http://azkaban_address/userReq/doLogin"
 	// todo: verify login and get session id
-	retBytes := http.DoPostFormRequest(loginUrl, param)
-	log.Info("[test] login azkaban ret: %s", string(retBytes))
+	httpClient := http.GetHTTPClient()
+	rsp, _ := httpClient.Do(http.Url(loginUrl),
+		http.PostWithUrlEncode(),
+		http.AddParam("loginEmail", "admin"),
+		http.AddParam("password", "admin"))
+	log.Info("[test] login azkaban ret: body: %s", string(rsp.Body))
+	for key, value := range rsp.Header {
+		log.Info("[test] login azkaban ret: header: %s -> %s", key, value)
+	}
 }
