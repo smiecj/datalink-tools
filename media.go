@@ -1,12 +1,5 @@
 package main
 
-import (
-	"fmt"
-
-	"github.com/smiecj/go_common/util/json"
-	"github.com/smiecj/go_common/util/log"
-)
-
 /*
 {
   "aaData": [
@@ -73,13 +66,13 @@ type DBStatusConfig struct {
 
 // 数据库连接配置，如数据源地址、连接账户
 type DBConnectConfig struct {
-	encoding        string `json:"encoding"`
-	mediaSourceType string `json:"mediaSourceType"`
-	name            string `json:"name"`
-	port            int    `json:"port"`
+	Encoding        string `json:"encoding"`
+	MediaSourceType string `json:"mediaSourceType"`
+	Name            string `json:"name"`
+	Port            int    `json:"port"`
 	ReadConfig      struct {
 		Hosts    []string `json:"hosts"`
-		Username []string `json:"username"`
+		Username string   `json:"username"`
 	} `json:"readConfig"`
 	WriteConfig struct {
 		Username  string `json:"username"`
@@ -100,8 +93,8 @@ type QueryMediaListRet struct {
 	PageNum         int     `json:"pageNum"`
 	PageSize        int     `json:"pageSize"`
 	Pages           int     `json:"pages"`
-	recordsFiltered int     `json:"recordsFiltered"`
-	recordsTotal    int     `json:"recordsTotal"`
+	RecordsFiltered int     `json:"recordsFiltered"`
+	RecordsTotal    int     `json:"recordsTotal"`
 	Size            int     `json:"size"`
 	Start           int     `json:"start"`
 }
@@ -152,7 +145,7 @@ type QueryMediaListRet struct {
 
 const (
 	// 默认查询参数
-	defaultQueryParamStrFormat = `{"draw":1,"columns":[{"data":"id","name":"","searchable":true,"orderable":true,
+	defaultQueryMediaStrFormat = `{"draw":1,"columns":[{"data":"id","name":"","searchable":true,"orderable":true,
   "search":{"value":"","regex":false}},{"data":"rdbMediaSrcParameter.name","name":"","searchable":true,"orderable":true,
   "search":{"value":"","regex":false}},{"data":"rdbMediaSrcParameter.mediaSourceType","name":"","searchable":true,
   "orderable":true,"search":{"value":"","regex":false}},{"data":"rdbMediaSrcParameter.writeConfig.writeHost","name":"",
@@ -179,30 +172,16 @@ type QueryColumn struct {
 }
 
 // 查询介质列表参数
-type QueryParam struct {
+type QueryMediaParam struct {
 	Draw            int           `json:"draw"`
 	QueryColumns    []QueryColumn `json:"columns"`
 	Start           int           `json:"start"`
 	Length          int           `json:"length"`
-	MediaSourceType int           `json:"mediaSourceType"`
+	MediaSourceType string        `json:"mediaSourceType"`
 	Order           []struct {
 		Column int    `json:"column"`
 		Dir    string `json:"dir"`
 	} `json:"order"`
-}
-
-// 生成默认的查询介质参数
-func buildQueryParamWithPage(start, limit int) QueryParam {
-	// 直接通过 json 解析
-	return buildQueryParam(start, limit)
-}
-
-func buildQueryParam(start, limit int) QueryParam {
-	queryParamStr := fmt.Sprintf(defaultQueryParamStrFormat, start, limit)
-	queryParam := QueryParam{}
-	json.Unmarshal([]byte(queryParamStr), &queryParam)
-	log.Info("[debug] start: %d, length: %d", queryParam.Start, queryParam.Length)
-	return queryParam
 }
 
 // 生成查询介质参数，需要设置的参数通过传参直接传入

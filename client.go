@@ -66,19 +66,23 @@ func (client *datalinkClient) login() error {
 	return fmt.Errorf("login failed")
 }
 
+// 获取作为cookie 参数中的 session id 格式
+func (client *datalinkClient) getCookieSessionId() string {
+	return fmt.Sprintf(reqCookieSessionIdFormat, client.sessionId)
+}
+
 // 获取所有介质
-// todo: 当前: 调试参数错误的问题: ① length 不能为0 ② ？
 func (client *datalinkClient) GetMedias() ([]*Media, error) {
 	retMediaArr := make([]*Media, 0)
 	// 分页获取
+	start := 0
 	for {
-		start := 0
-		queryParam := buildQueryParamWithPage(start, pageStep)
+		queryParam := client.buildQueryMediaParam(start, pageStep)
 		queryParamStr, _ := json.Marshal(queryParam)
 		getMediaUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlGetMedia)
 		rsp, err := client.httpClient.Do(http.Url(getMediaUrl),
 			http.Post(),
-			http.AddHeader(reqHeaderCookie, fmt.Sprintf(reqCookieSessionIdFormat, client.sessionId)),
+			http.AddHeader(reqHeaderCookie, client.getCookieSessionId()),
 			http.SetParam(string(queryParamStr)))
 		if nil != err {
 			log.Error("[GetMedias] 获取介质失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
@@ -100,6 +104,7 @@ func (client *datalinkClient) GetMedias() ([]*Media, error) {
 		for _, currentMedia := range queryMediaRet.MediaList {
 			retMediaArr = append(retMediaArr, &currentMedia)
 		}
+		log.Info("[GetMedias] 获取介质完成，起点: %d, 获取介质数: %d", start, len(queryMediaRet.MediaList))
 
 		start += pageStep
 	}
@@ -107,14 +112,104 @@ func (client *datalinkClient) GetMedias() ([]*Media, error) {
 
 // 获取所有任务
 func (client *datalinkClient) GetTasks() ([]*Task, error) {
-	// todo: implement
-	return nil, fmt.Errorf("not implement")
+	retTasksArr := make([]*Task, 0)
+	// 分页获取
+	start := 0
+	for {
+		queryParam := client.buildQueryTaskParam(start, pageStep)
+		queryParamStr, _ := json.Marshal(queryParam)
+		getTasksUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlGetTasks)
+		rsp, err := client.httpClient.Do(http.Url(getTasksUrl),
+			http.Post(),
+			http.AddHeader(reqHeaderCookie, client.getCookieSessionId()),
+			http.SetParam(string(queryParamStr)))
+		if nil != err {
+			log.Error("[GetTasks] 获取任务失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			return retTasksArr, err
+		}
+
+		queryTaskRet := QueryTaskListRet{}
+		err = json.Unmarshal([]byte(rsp.Body), &queryTaskRet)
+		if nil != err {
+			log.Error("[GetTasks] 解析获取任务结果失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			return retTasksArr, err
+		}
+
+		if len(queryTaskRet.TaskList) == 0 {
+			log.Info("[GetTasks] 获取任务完成, 当前位置: %d", start)
+			return retTasksArr, nil
+		}
+
+		for _, currentTask := range queryTaskRet.TaskList {
+			retTasksArr = append(retTasksArr, &currentTask)
+		}
+		log.Info("[GetMedias] 获取介质完成，起点: %d, 获取介质数: %d", start, len(queryTaskRet.TaskList))
+
+		start += pageStep
+	}
 }
 
 // 获取所有同步关联配置
 func (client *datalinkClient) GetMappings() ([]*Mapping, error) {
-	// todo: implement
-	return nil, fmt.Errorf("not implement")
+	retMappingArr := make([]*Mapping, 0)
+	// 分页获取
+	start := 0
+	for {
+		queryParam := client.buildQueryMappingParam(start, pageStep)
+		queryParamStr, _ := json.Marshal(queryParam)
+		getMappingUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlGetMapping)
+		rsp, err := client.httpClient.Do(http.Url(getMappingUrl),
+			http.Post(),
+			http.AddHeader(reqHeaderCookie, client.getCookieSessionId()),
+			http.SetParam(string(queryParamStr)))
+		if nil != err {
+			log.Error("[GetMappings] 获取映射失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			return retMappingArr, err
+		}
+
+		queryMappingRet := QueryMappingListRet{}
+		err = json.Unmarshal([]byte(rsp.Body), &queryMappingRet)
+		if nil != err {
+			log.Error("[GetMappings] 解析获取映射结果失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			return retMappingArr, err
+		}
+
+		if len(queryMappingRet.MappingList) == 0 {
+			log.Info("[GetMappings] 获取映射完成, 当前位置: %d", start)
+			return retMappingArr, nil
+		}
+
+		for _, currentMapping := range queryMappingRet.MappingList {
+			retMappingArr = append(retMappingArr, &currentMapping)
+		}
+		log.Info("[GetMappings] 获取映射完成，起点: %d, 获取介质数: %d", start, len(queryMappingRet.MappingList))
+
+		start += pageStep
+	}
+}
+
+// 构建介质查询参数
+func (client *datalinkClient) buildQueryMediaParam(start, limit int) QueryMediaParam {
+	queryParamStr := fmt.Sprintf(defaultQueryMediaStrFormat, start, limit)
+	queryParam := QueryMediaParam{}
+	json.Unmarshal([]byte(queryParamStr), &queryParam)
+	return queryParam
+}
+
+// 构建任务查询参数
+func (client *datalinkClient) buildQueryTaskParam(start, limit int) QueryTaskParam {
+	queryParamStr := fmt.Sprintf(defaultQueryTaskStrFormat, start, limit)
+	queryParam := QueryTaskParam{}
+	json.Unmarshal([]byte(queryParamStr), &queryParam)
+	return queryParam
+}
+
+// 构建映射查询参数
+func (client *datalinkClient) buildQueryMappingParam(start, limit int) QueryMappingParam {
+	queryParamStr := fmt.Sprintf(defaultQueryMappingStrFormat, start, limit)
+	queryParam := QueryMappingParam{}
+	json.Unmarshal([]byte(queryParamStr), &queryParam)
+	return queryParam
 }
 
 // 获取 client 单例

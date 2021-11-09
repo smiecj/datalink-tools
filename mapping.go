@@ -40,16 +40,29 @@ package main
 type Mapping struct {
 	Id int `json:"id"`
 	// 以下五个参数分别对应: 源介质名、源库名、源表名、源介质id、源自增id（介质自增id >= 介质id）
-	srcMediaSourceName string `json:"srcMediaSourceName"`
-	srcMediaNamespace  string `json:"srcMediaNamespace"`
-	srcMediaName       string `json:"srcMediaName"`
-	srcMediaSourceId   int    `json:"srcMediaSourceId"`
-	srcMediaId         int    `json:"srcMediaId"`
+	SrcMediaSourceName string `json:"srcMediaSourceName"`
+	SrcMediaNamespace  string `json:"srcMediaNamespace"`
+	SrcMediaName       string `json:"srcMediaName"`
+	SrcMediaSourceId   int    `json:"srcMediaSourceId"`
+	SrcMediaId         int    `json:"srcMediaId"`
 	// 以下四个参数分别对应: 目标介质名、目标库名、目标表名、目标介质id
-	targetMediaSourceName string `json:"targetMediaSourceName"`
-	targetMediaNamespace  string `json:"targetMediaNamespace"`
-	targetMediaName       string `json:"targetMediaName"`
-	targetMediaSourceId   int    `json:"targetMediaSourceId"`
+	TargetMediaSourceName string `json:"targetMediaSourceName"`
+	TargetMediaNamespace  string `json:"targetMediaNamespace"`
+	TargetMediaName       string `json:"targetMediaName"`
+	TargetMediaSourceId   int    `json:"targetMediaSourceId"`
+}
+
+// 查询任务列表接口返回信息 (/mediaMapping/initMediaMapping)
+type QueryMappingListRet struct {
+	MappingList     []Mapping `json:"aaData"`
+	Length          int       `json:"length"`
+	PageNum         int       `json:"pageNum"`
+	PageSize        int       `json:"pageSize"`
+	Pages           int       `json:"pages"`
+	RecordsFiltered int       `json:"recordsFiltered"`
+	RecordsTotal    int       `json:"recordsTotal"`
+	Size            int       `json:"size"`
+	Start           int       `json:"start"`
 }
 
 /******************** 以下是接口查询参数 *********************/
@@ -89,4 +102,36 @@ type Mapping struct {
 }
 */
 
-// 查询参数和storage共用
+const (
+	// 默认查询参数
+	defaultQueryMappingStrFormat = `{"draw":3,"columns":[{"data":"id","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"taskName","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"srcMediaSourceName","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"srcMediaName","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"targetMediaSourceName","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"targetMediaName","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"writePriority","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"valid","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"createTime","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":null,"name":"","searchable":false,"orderable":false,
+  "search":{"value":"","regex":false}}],"order":[{"column":4,"dir":"asc"}],"start":%d,"length":%d,
+  "search":{"value":"","regex":false},"mediaSourceId":"-1","targetMediaSourceId":"-1","srcMediaName":"",
+  "targetMediaName":"","taskId":"-1"}`
+)
+
+// 查询映射列表参数
+type QueryMappingParam struct {
+	Draw                int           `json:"draw"`
+	QueryColumns        []QueryColumn `json:"columns"`
+	Start               int           `json:"start"`
+	Length              int           `json:"length"`
+	MediaSourceId       string        `json:"mediaSourceId"`
+	TargetMediaSourceId string        `json:"targetMediaSourceId"`
+	SrcMediaName        string        `json:"srcMediaName"`
+	TargetMediaName     string        `json:"targetMediaName"`
+	TaskId              string        `json:"taskId"`
+	Order               []struct {
+		Column int    `json:"column"`
+		Dir    string `json:"dir"`
+	} `json:"order"`
+}

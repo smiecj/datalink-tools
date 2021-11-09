@@ -38,28 +38,28 @@ package main
 
 // 任务
 type Task struct {
-	id                 int    `json:"id"`
-	groupId            int    `json:"groupId"`
-	workerId           string `json:"workerId"`
+	Id                 int    `json:"id"`
+	GroupId            int    `json:"groupId"`
+	WorkerId           int    `json:"workerId"`
 	Name               string `json:"taskName"`
 	Description        string `json:"taskDesc"`
 	SyncStatus         string `json:"taskSyncStatus"`
-	targetState        string `json:"targetState"`
-	currentLogFile     string `json:"currentLogFile"`
-	currentLogPosition string `json:"taskDesc"`
+	TargetState        string `json:"targetState"`
+	CurrentLogFile     string `json:"currentLogFile"`
+	CurrentLogPosition int    `json:"currentLogPosition"`
 }
 
 // 查询任务列表接口返回信息 (/mysqlTask/mysqlTaskDatas)
 type QueryTaskListRet struct {
-	TaskList        []Media `json:"aaData"`
-	Length          int     `json:"length"`
-	PageNum         int     `json:"pageNum"`
-	PageSize        int     `json:"pageSize"`
-	Pages           int     `json:"pages"`
-	recordsFiltered int     `json:"recordsFiltered"`
-	recordsTotal    int     `json:"recordsTotal"`
-	Size            int     `json:"size"`
-	Start           int     `json:"start"`
+	TaskList        []Task `json:"aaData"`
+	Length          int    `json:"length"`
+	PageNum         int    `json:"pageNum"`
+	PageSize        int    `json:"pageSize"`
+	Pages           int    `json:"pages"`
+	RecordsFiltered int    `json:"recordsFiltered"`
+	RecordsTotal    int    `json:"recordsTotal"`
+	Size            int    `json:"size"`
+	Start           int    `json:"start"`
 }
 
 /******************** 以下是接口查询参数 *********************/
@@ -96,4 +96,42 @@ type QueryTaskListRet struct {
 }
 */
 
-// 查询参数和storage共用
+const (
+	// 默认查询参数
+	defaultQueryTaskStrFormat = `{"draw":2,"columns":[{"data":"id","name":"","searchable":true,"orderable":false,
+  "search":{"value":"","regex":false}},{"data":"id","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"taskName","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"detail","name":"","searchable":true,"orderable":false,
+  "search":{"value":"","regex":false}},{"data":"targetState","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"listenedState","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"groupId","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"workerId","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"currentTimeStamp","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"startTime","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"readerIp","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"latestEffectSyncLogFileName","name":"","searchable":true,
+  "orderable":true,"search":{"value":"","regex":false}},{"data":"latestEffectSyncLogFileOffset","name":"",
+  "searchable":true,"orderable":true,"search":{"value":"","regex":false}},{"data":"taskSyncStatus","name":"",
+  "searchable":true,"orderable":true,"search":{"value":"","regex":false}},{"data":"shadowCurrentTimeStamp","name":"",
+  "searchable":true,"orderable":true,"search":{"value":"","regex":false}},
+  {"data":"shadowLatestEffectSyncLogFileName","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"shadowLatestEffectSyncLogFileOffset","name":"",
+  "searchable":true,"orderable":true,"search":{"value":"","regex":false}},{"data":null,"name":"",
+  "searchable":false,"orderable":false,"search":{"value":"","regex":false}}],"order":[{"column":0,"dir":"asc"}],
+  "start":%d,"length":%d,"search":{"value":"","regex":false},"readerMediaSourceId":"-1","groupId":"-1","id":"-1"}`
+)
+
+// 查询任务列表参数
+type QueryTaskParam struct {
+	Draw                int           `json:"draw"`
+	QueryColumns        []QueryColumn `json:"columns"`
+	Start               int           `json:"start"`
+	Length              int           `json:"length"`
+	ReaderMediaSourceId string        `json:"readerMediaSourceId"`
+	GroupId             string        `json:"groupId"`
+	Id                  string        `json:"id"`
+	Order               []struct {
+		Column int    `json:"column"`
+		Dir    string `json:"dir"`
+	} `json:"order"`
+}
