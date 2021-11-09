@@ -1,5 +1,12 @@
 package main
 
+import (
+	"fmt"
+
+	"github.com/smiecj/go_common/util/json"
+	"github.com/smiecj/go_common/util/log"
+)
+
 /*
 {
   "aaData": [
@@ -143,6 +150,22 @@ type QueryMediaListRet struct {
 }
 */
 
+const (
+	// 默认查询参数
+	defaultQueryParamStrFormat = `{"draw":1,"columns":[{"data":"id","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"rdbMediaSrcParameter.name","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"rdbMediaSrcParameter.mediaSourceType","name":"","searchable":true,
+  "orderable":true,"search":{"value":"","regex":false}},{"data":"rdbMediaSrcParameter.writeConfig.writeHost","name":"",
+  "searchable":true,"orderable":true,"search":{"value":"","regex":false}},
+  {"data":"rdbMediaSrcParameter.writeConfig.username","name":"","searchable":true,"orderable":true,
+  "search":{"value":"","regex":false}},{"data":"rdbMediaSrcParameter.readConfig.hosts","name":"","searchable":true,
+  "orderable":true,"search":{"value":"","regex":false}},{"data":"rdbMediaSrcParameter.readConfig.username","name":"",
+  "searchable":true,"orderable":true,"search":{"value":"","regex":false}},{"data":"createTime","name":"","searchable":true,
+  "orderable":false,"search":{"value":"","regex":false}},{"data":"id","name":"","searchable":true,"orderable":false,
+  "search":{"value":"","regex":false}}],"order":[{"column":0,"dir":"asc"}],"start":%d,"length":%d,
+  "search":{"value":"","regex":false},"mediaSourceType":"-1","name":"","ip":""}`
+)
+
 // 查询介质，需要查询的列参数
 type QueryColumn struct {
 	Data       string `json:"data"`
@@ -161,12 +184,28 @@ type QueryParam struct {
 	QueryColumns    []QueryColumn `json:"columns"`
 	Start           int           `json:"start"`
 	Length          int           `json:"length"`
-	MediaSourceType string        `json:"mediaSourceType"`
+	MediaSourceType int           `json:"mediaSourceType"`
 	Order           []struct {
-		Column string `json:"column"`
+		Column int    `json:"column"`
 		Dir    string `json:"dir"`
 	} `json:"order"`
 }
+
+// 生成默认的查询介质参数
+func buildQueryParamWithPage(start, limit int) QueryParam {
+	// 直接通过 json 解析
+	return buildQueryParam(start, limit)
+}
+
+func buildQueryParam(start, limit int) QueryParam {
+	queryParamStr := fmt.Sprintf(defaultQueryParamStrFormat, start, limit)
+	queryParam := QueryParam{}
+	json.Unmarshal([]byte(queryParamStr), &queryParam)
+	log.Info("[debug] start: %d, length: %d", queryParam.Start, queryParam.Length)
+	return queryParam
+}
+
+// 生成查询介质参数，需要设置的参数通过传参直接传入
 
 // 查询介质详细信息参数
 /* type QueryMediaDetailParam struct {

@@ -10,7 +10,6 @@ import (
 func TestLoginByHttpClient(t *testing.T) {
 	log.Info("[test] ready to login")
 	loginUrl := "http://azkaban_address/userReq/doLogin"
-	// todo: verify login and get session id
 	httpClient := http.GetHTTPClient()
 	rsp, _ := httpClient.Do(http.Url(loginUrl),
 		http.PostWithUrlEncode(),

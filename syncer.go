@@ -11,7 +11,7 @@ func GetSyncer(option DatalinkOption) *Syncer {
 	return syncer
 }
 
-// todo: 备份介质
+// todo: 同步介质
 func (syncer *Syncer) SyncMedia() (int, error) {
 	return 0, nil
 }
