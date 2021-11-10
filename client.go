@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	http "github.com/smiecj/go_common/http"
 	"github.com/smiecj/go_common/util/json"
@@ -20,15 +21,15 @@ const (
 )
 
 var (
-	clientSingleton Client
-	clientOnce      sync.Once
+	clientMap  = make(map[DatalinkOption]Client)
+	clientLock sync.RWMutex
 )
 
 type Client interface {
 	GetMedias() ([]*Media, error)
 	GetTasks() ([]*Task, error)
 	GetMappings() ([]*Mapping, error)
-	login() error
+	start()
 }
 
 type datalinkClient struct {
@@ -45,7 +46,7 @@ func (client *datalinkClient) login() error {
 		http.PostWithUrlEncode(),
 		http.AddParam("loginEmail", client.Option.Username),
 		http.AddParam("password", client.Option.Password))
-	log.Info("[login] 登录 Azkaban 结果: %s", rsp.Body)
+	log.Info("[login] 登录 datalink 结果: %s", rsp.Body)
 	if nil != err {
 		return err
 	}
@@ -212,13 +213,38 @@ func (client *datalinkClient) buildQueryMappingParam(start, limit int) QueryMapp
 	return queryParam
 }
 
-// 获取 client 单例
+// 开启一个协程，定期更新session id
+func (client *datalinkClient) start() {
+	// 登录 属于基本功能，一般不做返回值检查
+	_ = client.login()
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		for range ticker.C {
+			_ = client.login()
+		}
+	}()
+}
+
+// 根据配置 获取 client 单例
 func GetDataLinkClient(option DatalinkOption) Client {
-	clientOnce.Do(func() {
-		client := new(datalinkClient)
-		client.Option = option
-		client.httpClient = http.GetHTTPClient()
-		clientSingleton = client
-	})
-	return clientSingleton
+	var client Client
+	clientLock.RLock()
+	client = clientMap[option]
+	clientLock.RUnlock()
+
+	if nil != client {
+		return client
+	}
+
+	clientLock.Lock()
+	defer clientLock.Unlock()
+
+	dlinkClient := new(datalinkClient)
+	dlinkClient.Option = option
+	dlinkClient.httpClient = http.GetHTTPClient()
+	dlinkClient.start()
+	clientMap[option] = dlinkClient
+
+	return dlinkClient
 }

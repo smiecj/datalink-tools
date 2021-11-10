@@ -30,13 +30,12 @@ func main() {
 			Username: username,
 			Password: password,
 		})
-		mediaCount, err := backuper.BackupMedia()
-		if nil != err {
-			log.Error("[main] backup datalink media config failed: %s", err.Error())
-			return
-		} else {
-			log.Info("[main] backup datalink media config success: %d", mediaCount)
-		}
+		mediaBackupCount, _ := backuper.BackupMedia()
+		taskBackupCount, _ := backuper.BackupTask()
+		mappingBackupCount, _ := backuper.BackupMapping()
+
+		log.Info("[main] backup datalink config result: media backup count: %d, task backup count: %d, "+
+			"mapping backup count: %d", mediaBackupCount, taskBackupCount, mappingBackupCount)
 	case CommandSync:
 		syncer := GetSyncer(DatalinkOption{
 			Address:  address,
