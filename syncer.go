@@ -13,5 +13,16 @@ func GetSyncer(option DatalinkOption) *Syncer {
 
 // todo: 同步介质
 func (syncer *Syncer) SyncMedia() (int, error) {
+
+	return 0, nil
+}
+
+// todo: 同步任务
+func (syncer *Syncer) SyncTask() (int, error) {
+	return 0, nil
+}
+
+// todo: 同步映射
+func (syncer *Syncer) SyncMapping() (int, error) {
 	return 0, nil
 }

@@ -9,7 +9,7 @@ import (
 
 func TestGetMedia(t *testing.T) {
 	client := GetDataLinkClient(DatalinkOption{Address: testDatalinkAddress, Username: testUserName, Password: testPassword})
-	mediaArr, err := client.GetMedias()
+	mediaArr, err := client.GetRDBMedias()
 	log.Info("[TestGetMedia] get media len: %d", len(mediaArr))
 	require.Equal(t, err, nil)
 }

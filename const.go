@@ -2,10 +2,14 @@ package main
 
 const (
 	// datalink api
-	urlLogin      = "/userReq/doLogin"
-	urlGetMedia   = "/mediaSource/initMediaSource"
-	urlGetTasks   = "/mysqlTask/mysqlTaskDatas"
-	urlGetMapping = "/mediaMapping/initMediaMapping"
+	urlLogin        = "/userReq/doLogin"
+	urlGetRDBMedia  = "/mediaSource/initMediaSource"
+	urlGetKuduMedia = "/kudu/initKudu"
+	urlGetTasks     = "/mysqlTask/mysqlTaskDatas"
+	urlGetMapping   = "/mediaMapping/initMediaMapping"
+
+	urlAddRDBMedia  = ""
+	urlAddKuduMedia = "/kudu/doAdd"
 )
 
 const (

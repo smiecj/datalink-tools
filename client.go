@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,9 +27,13 @@ var (
 )
 
 type Client interface {
-	GetMedias() ([]*Media, error)
+	GetRDBMedias() ([]*RDBMedia, error)
+	GetKuduMedias() ([]*KuduMedia, error)
 	GetTasks() ([]*Task, error)
 	GetMappings() ([]*Mapping, error)
+	SaveMedias([]*RDBMedia) (int, error)
+	SaveTasks([]*Task) (int, error)
+	SaveMappings([]*Mapping) (int, error)
 	start()
 }
 
@@ -72,43 +77,70 @@ func (client *datalinkClient) getCookieSessionId() string {
 	return fmt.Sprintf(reqCookieSessionIdFormat, client.sessionId)
 }
 
-// 获取所有介质
-func (client *datalinkClient) GetMedias() ([]*Media, error) {
-	retMediaArr := make([]*Media, 0)
+// 获取所有RDB介质
+func (client *datalinkClient) GetRDBMedias() ([]*RDBMedia, error) {
+	retMediaArr := make([]*RDBMedia, 0)
 	// 分页获取
 	start := 0
 	for {
 		queryParam := client.buildQueryMediaParam(start, pageStep)
 		queryParamStr, _ := json.Marshal(queryParam)
-		getMediaUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlGetMedia)
-		rsp, err := client.httpClient.Do(http.Url(getMediaUrl),
+		getRDBMediaUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlGetRDBMedia)
+		rsp, err := client.httpClient.Do(http.Url(getRDBMediaUrl),
 			http.Post(),
 			http.AddHeader(reqHeaderCookie, client.getCookieSessionId()),
 			http.SetParam(string(queryParamStr)))
 		if nil != err {
-			log.Error("[GetMedias] 获取介质失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			log.Error("[GetRDBMedias] 获取RDB介质失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
 			return retMediaArr, err
 		}
 
-		queryMediaRet := QueryMediaListRet{}
+		queryMediaRet := QueryRDBMediaListRet{}
 		err = json.Unmarshal([]byte(rsp.Body), &queryMediaRet)
 		if nil != err {
-			log.Error("[GetMedias] 解析获取介质结果失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			log.Error("[GetRDBMedias] 解析获取RDB介质结果失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
 			return retMediaArr, err
 		}
 
 		if len(queryMediaRet.MediaList) == 0 {
-			log.Info("[GetMedias] 获取介质完成, 起点位置: %d", start)
+			log.Info("[GetRDBMedias] 获取RDB介质完成, 起点位置: %d", start)
 			return retMediaArr, nil
 		}
 
 		for _, currentMedia := range queryMediaRet.MediaList {
 			retMediaArr = append(retMediaArr, &currentMedia)
 		}
-		log.Info("[GetMedias] 获取介质完成，起点: %d, 获取介质数: %d", start, len(queryMediaRet.MediaList))
+		log.Info("[GetRDBMedias] 获取RDB介质完成，起点: %d, 获取介质数: %d", start, len(queryMediaRet.MediaList))
 
 		start += pageStep
 	}
+}
+
+// 获取所有Kudu 介质
+func (client *datalinkClient) GetKuduMedias() ([]*KuduMedia, error) {
+	retArr := make([]*KuduMedia, 0)
+	// kudu 介质: 直接获取
+	getKuduMediaUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlGetKuduMedia)
+	rsp, err := client.httpClient.Do(http.Url(getKuduMediaUrl),
+		http.Get(),
+		http.AddHeader(reqHeaderCookie, client.getCookieSessionId()))
+	if nil != err {
+		log.Error("[GetKuduMedias] 获取 kudu 介质失败，请检查: %s", err.Error())
+		return retArr, err
+	}
+	queryKuduMediaRet := QueryKuduMediaListRet{}
+	err = json.Unmarshal([]byte(rsp.Body), &queryKuduMediaRet)
+	if nil != err {
+		log.Error("[GetKuduMedias] 解析获取kudu介质结果失败，错误信息: %s", err.Error())
+		return retArr, err
+	}
+
+	for _, currentKuduMedia := range queryKuduMediaRet.MediaList {
+		retArr = append(retArr, &currentKuduMedia)
+	}
+
+	log.Info("[GetKuduMedias] 获取 kudu 介质成功，总数: %d", len(retArr))
+	return retArr, nil
 }
 
 // 获取所有任务
@@ -189,10 +221,25 @@ func (client *datalinkClient) GetMappings() ([]*Mapping, error) {
 	}
 }
 
+// todo: 保存介质信息到服务器中
+func (client *datalinkClient) SaveMedias([]*RDBMedia) (int, error) {
+	return 0, fmt.Errorf("Not implement")
+}
+
+// todo: 保存任务信息到服务器中
+func (client *datalinkClient) SaveTasks([]*Task) (int, error) {
+	return 0, fmt.Errorf("Not implement")
+}
+
+// todo: 保存映射信息到服务器中
+func (client *datalinkClient) SaveMappings([]*Mapping) (int, error) {
+	return 0, fmt.Errorf("Not implement")
+}
+
 // 构建介质查询参数
-func (client *datalinkClient) buildQueryMediaParam(start, limit int) QueryMediaParam {
-	queryParamStr := fmt.Sprintf(defaultQueryMediaStrFormat, start, limit)
-	queryParam := QueryMediaParam{}
+func (client *datalinkClient) buildQueryMediaParam(start, limit int) QueryRDBMediaParam {
+	queryParamStr := fmt.Sprintf(defaultQueryRDBMediaStrFormat, start, limit)
+	queryParam := QueryRDBMediaParam{}
 	json.Unmarshal([]byte(queryParamStr), &queryParam)
 	return queryParam
 }
@@ -211,6 +258,26 @@ func (client *datalinkClient) buildQueryMappingParam(start, limit int) QueryMapp
 	queryParam := QueryMappingParam{}
 	json.Unmarshal([]byte(queryParamStr), &queryParam)
 	return queryParam
+}
+
+// 构建RDB介质保存参数
+// {media_name}、{db_write_host}、{db_read_host}、{db_write_user}、{db_read_user}
+// {db_write_password}、{db_read_password}
+func (client *datalinkClient) buildSaveRDBMediaParam(conf *RDBMediaBackupConfig) string {
+	replacer := strings.NewReplacer("{media_name}", conf.Name, "{db_write_host}", conf.DBWriteHost,
+		"{db_read_host}", conf.DBReadHost, "{db_write_user}", conf.DBWriteUser, "{db_read_user}", conf.DBReadUser,
+		"{db_write_password}", conf.DBWritePassword, "{db_read_password}", conf.DBReadPassword)
+	paramStr := replacer.Replace(defaultSaveRDBMediaStrFormat)
+	return paramStr
+}
+
+// 构建Kudu介质保存参数
+// {kudu_master_host}、{kudu_master_port}、{name}、{desc}、{db_name}
+func (client *datalinkClient) buildSaveKuduMediaParam(conf *KuduMediaBackupConfig) string {
+	replacer := strings.NewReplacer("{name}", conf.Name, "{kudu_master_host}", conf.KuduMasterHost,
+		"{kudu_master_port}", strconv.Itoa(conf.KuduMasterPort), "{db_name}", conf.DBName, "{desc}", conf.Desc)
+	paramStr := replacer.Replace(defaultSaveKuduMediaStrFormat)
+	return paramStr
 }
 
 // 开启一个协程，定期更新session id

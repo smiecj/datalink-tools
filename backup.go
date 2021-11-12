@@ -21,9 +21,10 @@ func GetBackuper(option DatalinkOption) *Backuper {
 }
 
 // 备份介质
+// todo: backup media 改成 私有方法，不要把备份的具体逻辑 在外面体现，直接在 backuper 中做
 func (backuper *Backuper) BackupMedia() (int, error) {
 	// 从指定环境，获取当前所有介质
-	mediaArr, err := backuper.client.GetMedias()
+	mediaArr, err := backuper.client.GetRDBMedias()
 	if nil != err {
 		log.Error("[BackupMedia] 获取介质失败，请检查: %s", err.Error())
 		return 0, err
