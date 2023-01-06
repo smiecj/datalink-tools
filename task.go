@@ -1,4 +1,13 @@
-package main
+package tools
+
+import (
+	"fmt"
+	"time"
+)
+
+const (
+	kuduWriterParameterClass = "com.ucar.datalink.domain.plugin.writer.kudu.KuduWriterParameter"
+)
 
 /*
 {
@@ -36,7 +45,7 @@ package main
 }
 */
 
-// 任务
+// 任务 (列表参数)
 type Task struct {
 	Id                 int    `json:"id"`
 	GroupId            int    `json:"groupId"`
@@ -44,9 +53,102 @@ type Task struct {
 	Name               string `json:"taskName"`
 	Description        string `json:"taskDesc"`
 	SyncStatus         string `json:"taskSyncStatus"`
+	ListenedState      string `json:"listenedState"`
 	TargetState        string `json:"targetState"`
 	CurrentLogFile     string `json:"currentLogFile"`
 	CurrentLogPosition int    `json:"currentLogPosition"`
+}
+
+func (task Task) String() string {
+	return fmt.Sprintf("[task] name: %s, status: %s", task.Name, task.ListenedState)
+}
+
+// 任务 (详细参数)
+type TaskDetail struct {
+	TaskBasicInfo TaskBasicInfo `json:"taskBasicInfo"`
+
+	MysqlReaderParameter MysqlReaderParameter `json:"mysqlReaderParameter"`
+
+	WriterParameterMap WriterParameterMap `json:"writerParameterMap"`
+}
+
+func (detail TaskDetail) String() string {
+	return fmt.Sprintf("[TaskDetail] name: %s", detail.TaskBasicInfo.TaskName)
+}
+
+// 设置同步时间戳 为当前时间 (目前仅供测试)
+func (detail *TaskDetail) setCurrentTimestamp() {
+	detail.MysqlReaderParameter.StartTimeStamps = int(time.Now().UnixMilli())
+}
+
+// 设置同步时间戳 为指定时间
+func (detail *TaskDetail) SetTimestamp(timestamp int) {
+	detail.MysqlReaderParameter.StartTimeStamps = timestamp
+}
+
+// 任务详情和更新参数转换
+func (detail *TaskDetail) getDetailUpdate() *TaskDetailUpdate {
+	ret := new(TaskDetailUpdate)
+	ret.MysqlReaderParameter = detail.MysqlReaderParameter
+	ret.TaskBasicInfo = detail.TaskBasicInfo
+	ret.WriterParameterMap = detail.WriterParameterMap
+	ret.WriterParameterMap.WriterKudu.Type = kuduWriterParameterClass
+	ret.WriterParameterMap.WriterKudu.PluginClass = ""
+	// ret.MysqlReaderParameter.FilteredEventTypes = nil
+	return ret
+}
+
+type TaskBasicInfo struct {
+	Id          int    `json:"id"`
+	TaskName    string `json:"taskName"`
+	TaskDesc    string `json:"taskDesc"`
+	TargetState string `json:"targetState"`
+	GroupId     int    `json:"groupId"`
+}
+
+type MysqlReaderParameter struct {
+	MediaSourceId                      int      `json:"mediaSourceId"`
+	StartTimeStamps                    int      `json:"startTimeStamps"`
+	BlackFilter                        string   `json:"blackFilter"`
+	BatchTimeout                       int      `json:"batchTimeout"`
+	DefaultConnectionTimeoutInSeconds  int      `json:"defaultConnectionTimeoutInSeconds"`
+	DetectingIntervalInSeconds         int      `json:"detectingIntervalInSeconds"`
+	DetectingRetryTimes                int      `json:"detectingRetryTimes"`
+	DetectingSQL                       string   `json:"detectingSQL"`
+	DetectingTimeoutThresholdInSeconds int      `json:"detectingTimeoutThresholdInSeconds"`
+	Dump                               bool     `json:"dump"`
+	DumpDetail                         bool     `json:"dumpDetail"`
+	FallbackIntervalInSeconds          int      `json:"fallbackIntervalInSeconds"`
+	FilteredEventTypes                 []string `json:"filteredEventTypes"`
+	MemoryStorageBufferMemUnit         int      `json:"memoryStorageBufferMemUnit"`
+	MemoryStorageBufferSize            int      `json:"memoryStorageBufferSize"`
+	MessageBatchSize                   int      `json:"messageBatchSize"`
+	ReceiveBufferSize                  int      `json:"receiveBufferSize"`
+	SendBufferSize                     int      `json:"sendBufferSize"`
+	GroupSinkMode                      string   `json:"groupSinkMode"`
+	DdlSync                            bool     `json:"ddlSync"`
+	PerfStatistic                      bool     `json:"perfStatistic"`
+	Parallel                           bool     `json:"parallel"`
+	GtidEnable                         bool     `json:"gtidEnable"`
+	MultiplexingRead                   bool     `json:"multiplexingRead"`
+}
+
+type WriterParameterMap struct {
+	WriterKudu struct {
+		PluginClass string `json:"pluginClass"`
+		Type        string `json:"@type"`
+		PoolSize    int    `json:"poolSize"`
+		BatchSize   int    `json:"batchSize"`
+	} `json:"writer-kudu"`
+}
+
+// 任务详细参数（更新任务接口用）
+type TaskDetailUpdate struct {
+	TaskBasicInfo TaskBasicInfo `json:"taskBasicInfo"`
+
+	MysqlReaderParameter MysqlReaderParameter `json:"mysqlReaderParameter"`
+
+	WriterParameterMap WriterParameterMap `json:"writerParameterMap"`
 }
 
 // 查询任务列表接口返回信息 (/mysqlTask/mysqlTaskDatas)

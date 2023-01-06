@@ -1,0 +1,6 @@
+datalink:
+  user: admin
+  password: admin
+  host: localhost
+  port: 8080
+  session_internal: 600

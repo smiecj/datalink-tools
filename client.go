@@ -1,4 +1,4 @@
-package main
+package tools
 
 import (
 	"fmt"
@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smiecj/go_common/config"
+	"github.com/smiecj/go_common/errorcode"
 	http "github.com/smiecj/go_common/http"
 	"github.com/smiecj/go_common/util/json"
 	"github.com/smiecj/go_common/util/log"
@@ -19,10 +21,14 @@ const (
 	reqHeaderCookie          = "Cookie"
 	reqCookieSessionIdFormat = "JSESSIONID=%s"
 	pageStep                 = 10
+
+	paramLoginEmail = "loginEmail"
+	paramPassword   = "password"
+	paramId         = "id"
 )
 
 var (
-	clientMap  = make(map[DatalinkOption]Client)
+	clientMap  = make(map[datalinkConfig]Client)
 	clientLock sync.RWMutex
 )
 
@@ -30,28 +36,33 @@ type Client interface {
 	GetRDBMedias() ([]*RDBMedia, error)
 	GetKuduMedias() ([]*KuduMedia, error)
 	GetTasks() ([]*Task, error)
+	GetTask(int) (*TaskDetail, error)
 	GetMappings() ([]*Mapping, error)
 	SaveMedias([]*RDBMedia) (int, error)
 	SaveTasks([]*Task) (int, error)
 	SaveMappings([]*Mapping) (int, error)
+	StartTask(int) error
+	StopTask(int) error
+	Refresh() error
+	UpdateTask(*TaskDetail) error
 	start()
 }
 
 type datalinkClient struct {
-	Option     DatalinkOption
-	sessionId  string
-	httpClient http.Client
+	conf               datalinkConfig
+	sessionId          string
+	httpClient         http.Client
+	taskNodeAddressArr []string
+	log                log.Logger
 }
 
 // 登录
 func (client *datalinkClient) login() error {
-	// 调用 login 接口
-	loginUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlLogin)
-	rsp, err := client.httpClient.Do(http.Url(loginUrl),
+	rsp, err := client.httpClient.Do(http.Url(client.conf.urlLogin()),
 		http.PostWithUrlEncode(),
-		http.AddParam("loginEmail", client.Option.Username),
-		http.AddParam("password", client.Option.Password))
-	log.Info("[login] 登录 datalink 结果: %s", rsp.Body)
+		http.AddParam(paramLoginEmail, client.conf.User),
+		http.AddParam(paramPassword, client.conf.Password))
+	client.log.Info("[login] 登录 datalink 结果: %s", rsp.Body)
 	if nil != err {
 		return err
 	}
@@ -72,6 +83,24 @@ func (client *datalinkClient) login() error {
 	return fmt.Errorf("login failed")
 }
 
+// 加载 task 节点 api 地址
+func (client *datalinkClient) loadWorkerNodeAddress() error {
+	// worker 数量目前不会太多，暂不需要分页获取
+	queryParamStr := client.buildQueryWorkerParamStr(0, 10)
+	rsp, err := client.httpClient.Do(http.Url(client.conf.urlGetWorker()),
+		http.Post(),
+		http.AddHeader(reqHeaderCookie, client.getCookieSessionId()),
+		http.SetParam(queryParamStr))
+	if nil != err {
+		client.log.Error("[loadTaskNodeAddress] 获取worker信息失败，请检查: %s", err.Error())
+		return err
+	}
+	queryWorkerRet := queryWorkerRet{}
+	_ = json.Unmarshal([]byte(rsp.Body), &queryWorkerRet)
+	client.taskNodeAddressArr = queryWorkerRet.getWorkerAddressArr()
+	return nil
+}
+
 // 获取作为cookie 参数中的 session id 格式
 func (client *datalinkClient) getCookieSessionId() string {
 	return fmt.Sprintf(reqCookieSessionIdFormat, client.sessionId)
@@ -85,53 +114,51 @@ func (client *datalinkClient) GetRDBMedias() ([]*RDBMedia, error) {
 	for {
 		queryParam := client.buildQueryMediaParam(start, pageStep)
 		queryParamStr, _ := json.Marshal(queryParam)
-		getRDBMediaUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlGetRDBMedia)
-		rsp, err := client.httpClient.Do(http.Url(getRDBMediaUrl),
+		rsp, err := client.httpClient.Do(http.Url(client.conf.urlRDBMedia()),
 			http.Post(),
 			http.AddHeader(reqHeaderCookie, client.getCookieSessionId()),
 			http.SetParam(string(queryParamStr)))
 		if nil != err {
-			log.Error("[GetRDBMedias] 获取RDB介质失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			client.log.Error("[GetRDBMedias] 获取RDB介质失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
 			return retMediaArr, err
 		}
 
 		queryMediaRet := QueryRDBMediaListRet{}
 		err = json.Unmarshal([]byte(rsp.Body), &queryMediaRet)
 		if nil != err {
-			log.Error("[GetRDBMedias] 解析获取RDB介质结果失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			client.log.Error("[GetRDBMedias] 解析获取RDB介质结果失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
 			return retMediaArr, err
 		}
 
 		if len(queryMediaRet.MediaList) == 0 {
-			log.Info("[GetRDBMedias] 获取RDB介质完成, 起点位置: %d", start)
+			client.log.Info("[GetRDBMedias] 获取RDB介质完成, 起点位置: %d", start)
 			return retMediaArr, nil
 		}
 
-		for _, currentMedia := range queryMediaRet.MediaList {
-			retMediaArr = append(retMediaArr, &currentMedia)
+		for index := 0; index < len(queryMediaRet.MediaList); index++ {
+			retMediaArr = append(retMediaArr, &queryMediaRet.MediaList[index])
 		}
-		log.Info("[GetRDBMedias] 获取RDB介质完成，起点: %d, 获取介质数: %d", start, len(queryMediaRet.MediaList))
+		client.log.Info("[GetRDBMedias] 获取RDB介质完成，起点: %d, 获取介质数: %d", start, len(queryMediaRet.MediaList))
 
 		start += pageStep
 	}
 }
 
-// 获取所有Kudu 介质
+// 获取所有 Kudu 介质
 func (client *datalinkClient) GetKuduMedias() ([]*KuduMedia, error) {
 	retArr := make([]*KuduMedia, 0)
 	// kudu 介质: 直接获取
-	getKuduMediaUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlGetKuduMedia)
-	rsp, err := client.httpClient.Do(http.Url(getKuduMediaUrl),
+	rsp, err := client.httpClient.Do(http.Url(client.conf.urlKuduMedia()),
 		http.Get(),
 		http.AddHeader(reqHeaderCookie, client.getCookieSessionId()))
 	if nil != err {
-		log.Error("[GetKuduMedias] 获取 kudu 介质失败，请检查: %s", err.Error())
+		client.log.Error("[GetKuduMedias] 获取 kudu 介质失败，请检查: %s", err.Error())
 		return retArr, err
 	}
 	queryKuduMediaRet := QueryKuduMediaListRet{}
 	err = json.Unmarshal([]byte(rsp.Body), &queryKuduMediaRet)
 	if nil != err {
-		log.Error("[GetKuduMedias] 解析获取kudu介质结果失败，错误信息: %s", err.Error())
+		client.log.Error("[GetKuduMedias] 解析获取kudu介质结果失败，错误信息: %s", err.Error())
 		return retArr, err
 	}
 
@@ -139,7 +166,7 @@ func (client *datalinkClient) GetKuduMedias() ([]*KuduMedia, error) {
 		retArr = append(retArr, &currentKuduMedia)
 	}
 
-	log.Info("[GetKuduMedias] 获取 kudu 介质成功，总数: %d", len(retArr))
+	client.log.Info("[GetKuduMedias] 获取 kudu 介质成功，总数: %d", len(retArr))
 	return retArr, nil
 }
 
@@ -151,35 +178,52 @@ func (client *datalinkClient) GetTasks() ([]*Task, error) {
 	for {
 		queryParam := client.buildQueryTaskParam(start, pageStep)
 		queryParamStr, _ := json.Marshal(queryParam)
-		getTasksUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlGetTasks)
-		rsp, err := client.httpClient.Do(http.Url(getTasksUrl),
+		rsp, err := client.httpClient.Do(http.Url(client.conf.urlTasks()),
 			http.Post(),
 			http.AddHeader(reqHeaderCookie, client.getCookieSessionId()),
 			http.SetParam(string(queryParamStr)))
 		if nil != err {
-			log.Error("[GetTasks] 获取任务失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			client.log.Error("[GetTasks] 获取任务失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
 			return retTasksArr, err
 		}
 
 		queryTaskRet := QueryTaskListRet{}
 		err = json.Unmarshal([]byte(rsp.Body), &queryTaskRet)
 		if nil != err {
-			log.Error("[GetTasks] 解析获取任务结果失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			client.log.Error("[GetTasks] 解析获取任务结果失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
 			return retTasksArr, err
 		}
 
 		if len(queryTaskRet.TaskList) == 0 {
-			log.Info("[GetTasks] 获取任务完成, 当前位置: %d", start)
+			client.log.Info("[GetTasks] 获取同步任务完成，总数: %d", len(retTasksArr))
 			return retTasksArr, nil
 		}
 
-		for _, currentTask := range queryTaskRet.TaskList {
-			retTasksArr = append(retTasksArr, &currentTask)
+		for index := 0; index < len(queryTaskRet.TaskList); index++ {
+			retTasksArr = append(retTasksArr, &queryTaskRet.TaskList[index])
 		}
-		log.Info("[GetMedias] 获取介质完成，起点: %d, 获取介质数: %d", start, len(queryTaskRet.TaskList))
 
 		start += pageStep
 	}
+}
+
+// 获取指定任务
+func (client *datalinkClient) GetTask(id int) (*TaskDetail, error) {
+	rsp, err := client.httpClient.Do(http.Url(client.conf.urlGetTask(id)),
+		http.Get(),
+		http.AddHeader(reqHeaderCookie, client.getCookieSessionId()))
+	if nil != err {
+		client.log.Error("[GetTask] 获取指定任务 id: %d 失败，请检查: %s", id, err.Error())
+		return nil, err
+	}
+	taskDetail := TaskDetail{}
+	err = json.Unmarshal([]byte(rsp.Body), &taskDetail)
+	if nil != err {
+		client.log.Error("[GetTask] 获取指定任务 id: %d 失败，请检查: %s", id, err.Error())
+		return nil, err
+	}
+	client.log.Info("[GetTask] 获取任务 id: %d 详细信息成功", id)
+	return &taskDetail, nil
 }
 
 // 获取所有同步关联配置
@@ -190,35 +234,96 @@ func (client *datalinkClient) GetMappings() ([]*Mapping, error) {
 	for {
 		queryParam := client.buildQueryMappingParam(start, pageStep)
 		queryParamStr, _ := json.Marshal(queryParam)
-		getMappingUrl := fmt.Sprintf("http://%s%s", client.Option.Address, urlGetMapping)
-		rsp, err := client.httpClient.Do(http.Url(getMappingUrl),
+		rsp, err := client.httpClient.Do(http.Url(client.conf.urlMapping()),
 			http.Post(),
 			http.AddHeader(reqHeaderCookie, client.getCookieSessionId()),
 			http.SetParam(string(queryParamStr)))
 		if nil != err {
-			log.Error("[GetMappings] 获取映射失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			client.log.Error("[GetMappings] 获取映射失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
 			return retMappingArr, err
 		}
 
 		queryMappingRet := QueryMappingListRet{}
 		err = json.Unmarshal([]byte(rsp.Body), &queryMappingRet)
 		if nil != err {
-			log.Error("[GetMappings] 解析获取映射结果失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
+			client.log.Error("[GetMappings] 解析获取映射结果失败, 当前起点位置: %d，错误信息: %s", start, err.Error())
 			return retMappingArr, err
 		}
 
 		if len(queryMappingRet.MappingList) == 0 {
-			log.Info("[GetMappings] 获取映射完成, 当前位置: %d", start)
+			client.log.Info("[GetMappings] 获取映射完成, 总数: %d", len(retMappingArr))
 			return retMappingArr, nil
 		}
 
-		for _, currentMapping := range queryMappingRet.MappingList {
-			retMappingArr = append(retMappingArr, &currentMapping)
+		for index := 0; index < len(queryMappingRet.MappingList); index++ {
+			retMappingArr = append(retMappingArr, &queryMappingRet.MappingList[index])
 		}
-		log.Info("[GetMappings] 获取映射完成，起点: %d, 获取介质数: %d", start, len(queryMappingRet.MappingList))
+		client.log.Info("[GetMappings] 获取映射完成，起点: %d, 获取介质数: %d", start, len(queryMappingRet.MappingList))
 
 		start += pageStep
 	}
+}
+
+// 启动指定任务
+func (client *datalinkClient) StartTask(taskId int) error {
+	rsp, err := client.httpClient.Do(http.Url(client.conf.urlStartTask(taskId)),
+		http.PostWithUrlEncode(),
+		http.AddHeader(reqHeaderCookie, client.getCookieSessionId()))
+	client.log.Info("[StartTask] 启动任务结果: %s", rsp.Body)
+	if nil != err {
+		return err
+	}
+	return nil
+}
+
+// 停止指定任务
+func (client *datalinkClient) StopTask(taskId int) error {
+	rsp, err := client.httpClient.Do(http.Url(client.conf.urlStopTask(taskId)),
+		http.PostWithUrlEncode(),
+		http.AddHeader(reqHeaderCookie, client.getCookieSessionId()))
+	client.log.Info("[StopTask] 停止任务结果: %s", rsp.Body)
+	if nil != err {
+		return err
+	}
+	return nil
+}
+
+// 更新指定任务
+func (client *datalinkClient) UpdateTask(task *TaskDetail) error {
+	rsp, err := client.httpClient.Do(http.Url(client.conf.urlUpdateTask()),
+		http.Post(),
+		http.SetBody(task.getDetailUpdate()),
+		http.AddHeader(reqHeaderCookie, client.getCookieSessionId()))
+	client.log.Info("[UpdateTask] 更新任务结果: %s", rsp.Body)
+	if nil != err {
+		return err
+	}
+	return nil
+}
+
+// 刷新 （kudu 元数据）
+func (client *datalinkClient) Refresh() error {
+	// 获取 kudu media
+	kuduMediaArr, err := client.GetKuduMedias()
+	if nil != err {
+		return err
+	}
+	// 默认 kudu media 只有一个
+	if len(kuduMediaArr) != 1 {
+		return errorcode.BuildErrorWithMsg(errorcode.ServiceError, "refresh failed: kudu media size is not 1")
+	}
+
+	// 调用 task 节点的刷新接口
+	for _, currentWorkerAddress := range client.taskNodeAddressArr {
+		_, err := client.httpClient.Do(http.Url(client.conf.urlRefreshKuduMedia(currentWorkerAddress, kuduMediaArr[0].Id)),
+			http.Post(),
+			http.AddHeader(reqHeaderCookie, client.getCookieSessionId()))
+		if nil != err {
+			client.log.Warn("[Refresh] worker 节点: %s, 刷新 kudu 元数据失败: %s", currentWorkerAddress, err.Error())
+			return err
+		}
+	}
+	return nil
 }
 
 // todo: 保存介质信息到服务器中
@@ -260,6 +365,12 @@ func (client *datalinkClient) buildQueryMappingParam(start, limit int) QueryMapp
 	return queryParam
 }
 
+// 构建worker查询参数
+func (client *datalinkClient) buildQueryWorkerParamStr(start, limit int) string {
+	queryParamStr := fmt.Sprintf(defaultQueryWorkerStrFormat, start, limit)
+	return queryParamStr
+}
+
 // 构建RDB介质保存参数
 // {media_name}、{db_write_host}、{db_read_host}、{db_write_user}、{db_read_user}
 // {db_write_password}、{db_read_password}
@@ -280,24 +391,34 @@ func (client *datalinkClient) buildSaveKuduMediaParam(conf *KuduMediaBackupConfi
 	return paramStr
 }
 
-// 开启一个协程，定期更新session id
+// 开启一个协程，定期更新 session id
 func (client *datalinkClient) start() {
 	// 登录 属于基本功能，一般不做返回值检查
 	_ = client.login()
+	_ = client.loadWorkerNodeAddress()
 
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(time.Duration(client.conf.SessionInternal) * time.Second)
 		for range ticker.C {
 			_ = client.login()
+			_ = client.loadWorkerNodeAddress()
 		}
 	}()
 }
 
 // 根据配置 获取 client 单例
-func GetDataLinkClient(option DatalinkOption) Client {
+func GetDataLinkClient(configManager config.Manager) Client {
+	conf := datalinkConfig{}
+	space, _ := configManager.GetSpace(datalinkSpaceName)
+	err := space.Unmarshal(&conf)
+	if nil != err {
+		log.Warn("[GetDataLinkClient] get datalink client fail: " + err.Error())
+		return nil
+	}
+
 	var client Client
 	clientLock.RLock()
-	client = clientMap[option]
+	client = clientMap[conf]
 	clientLock.RUnlock()
 
 	if nil != client {
@@ -308,10 +429,11 @@ func GetDataLinkClient(option DatalinkOption) Client {
 	defer clientLock.Unlock()
 
 	dlinkClient := new(datalinkClient)
-	dlinkClient.Option = option
+	dlinkClient.conf = conf
 	dlinkClient.httpClient = http.GetHTTPClient()
+	dlinkClient.log = log.PrefixLogger("datalink")
 	dlinkClient.start()
-	clientMap[option] = dlinkClient
+	clientMap[conf] = dlinkClient
 
 	return dlinkClient
 }

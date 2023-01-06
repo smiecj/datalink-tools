@@ -1,4 +1,9 @@
-package main
+package tools
+
+import (
+	"fmt"
+	"strings"
+)
 
 /*
 // 查询 RDB Media 返回信息
@@ -74,6 +79,7 @@ type RDBConnectConfig struct {
 	ReadConfig      struct {
 		Hosts    []string `json:"hosts"`
 		Username string   `json:"username"`
+		Password string   `json:"password"`
 	} `json:"readConfig"`
 	WriteConfig struct {
 		Username  string `json:"username"`
@@ -85,6 +91,29 @@ type RDBConnectConfig struct {
 type RDBMedia struct {
 	RDBStatusConfig  RDBStatusConfig  `json:"basicDataSourceConfig"`
 	RDBConnectConfig RDBConnectConfig `json:"rdbMediaSrcParameter"`
+	Schema           string           `json:"schema"`
+}
+
+func (media RDBMedia) GetReadHost() string {
+	return media.RDBConnectConfig.ReadConfig.Hosts[0]
+}
+
+func (media RDBMedia) GetReadPort() int {
+	return media.RDBConnectConfig.Port
+}
+
+func (media RDBMedia) GetReadUserName() string {
+	return media.RDBConnectConfig.ReadConfig.Username
+}
+
+func (media RDBMedia) GetReadPassword() string {
+	return media.RDBConnectConfig.ReadConfig.Password
+}
+
+func (media RDBMedia) String() string {
+	return fmt.Sprintf("[RDBMedia] name: %s, address: %s:%s@%s:%d/%s", media.RDBConnectConfig.Name,
+		media.RDBConnectConfig.ReadConfig.Username, media.RDBConnectConfig.ReadConfig.Password, media.RDBConnectConfig.ReadConfig.Hosts[0], media.RDBConnectConfig.Port,
+		media.Schema)
 }
 
 // 查询关系型数据库介质列表接口返回信息 (/mediaSource/initMediaSource)
@@ -163,6 +192,15 @@ type KuduMedia struct {
 	CreateTime            int               `json:"createTime"`
 	Desc                  string            `json:"desc"`
 	KuduMediaSrcParameter KuduConnectConfig `json:"kuduMediaSrcParameter"`
+}
+
+func (media KuduMedia) Database() string {
+	// 特殊逻辑: datalink 借助 impala 客户端同步数据，表名前面需要加上 impala::
+	return strings.ReplaceAll(media.KuduMediaSrcParameter.Database, "impala::", "")
+}
+
+func (media KuduMedia) String() string {
+	return fmt.Sprintf("[KuduMedia] name: %s, address: %s", media.Name, media.KuduMediaSrcParameter.Host2Ports)
 }
 
 // kudu 连接配置

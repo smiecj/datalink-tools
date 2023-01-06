@@ -1,13 +1,13 @@
-package main
+package tools
 
 // 同步datalink 配置
 type Syncer struct {
-	Option DatalinkOption
+	conf datalinkConfig
 }
 
-func GetSyncer(option DatalinkOption) *Syncer {
+func GetSyncer(conf datalinkConfig) *Syncer {
 	syncer := new(Syncer)
-	syncer.Option = option
+	syncer.conf = conf
 	return syncer
 }
 

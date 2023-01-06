@@ -1,4 +1,6 @@
-package main
+package tools
+
+import "fmt"
 
 /*
 {
@@ -50,6 +52,21 @@ type Mapping struct {
 	TargetMediaNamespace  string `json:"targetMediaNamespace"`
 	TargetMediaName       string `json:"targetMediaName"`
 	TargetMediaSourceId   int    `json:"targetMediaSourceId"`
+
+	// 其他参数
+	TaskName string `json:"taskName"`
+}
+
+func (mapping Mapping) SourceTable() string {
+	return mapping.SrcMediaName
+}
+
+func (mapping Mapping) TargetTable() string {
+	return mapping.TargetMediaName
+}
+
+func (mapping Mapping) String() string {
+	return fmt.Sprintf("[mapping] task: %s, src: %s, target: %s", mapping.TaskName, mapping.SrcMediaName, mapping.TargetMediaName)
 }
 
 // 查询任务列表接口返回信息 (/mediaMapping/initMediaMapping)

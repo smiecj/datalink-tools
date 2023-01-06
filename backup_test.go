@@ -1,17 +1,24 @@
-package main
+package tools
 
 import (
 	"testing"
 
+	"github.com/smiecj/go_common/config"
+	"github.com/smiecj/go_common/util/file"
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	testConfigManager config.Manager
+)
+
+func init() {
+	configFilePath := file.FindFilePath(defaultConfigFile)
+	testConfigManager, _ = config.GetYamlConfigManager(configFilePath)
+}
+
 func getTestBackuper() *Backuper {
-	backuper := GetBackuper(DatalinkOption{
-		Address:  testDatalinkAddress,
-		Username: testUserName,
-		Password: testPassword,
-	})
+	backuper := GetBackuper(testConfigManager)
 	return backuper
 }
 

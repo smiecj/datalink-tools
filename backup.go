@@ -1,22 +1,22 @@
-package main
+package tools
 
 import (
+	"github.com/smiecj/go_common/config"
 	"github.com/smiecj/go_common/db"
+	"github.com/smiecj/go_common/db/local"
 	"github.com/smiecj/go_common/util/log"
 )
 
 // 备份
 type Backuper struct {
-	option  DatalinkOption
 	client  Client
 	storage db.RDBConnector
 }
 
-func GetBackuper(option DatalinkOption) *Backuper {
+func GetBackuper(configManager config.Manager) *Backuper {
 	backuper := new(Backuper)
-	backuper.option = option
-	backuper.client = GetDataLinkClient(option)
-	backuper.storage = db.GetLocalFileConnector(localStorePath)
+	backuper.client = GetDataLinkClient(configManager)
+	backuper.storage, _ = local.GetLocalFileConnector(localStorePath)
 	return backuper
 }
 
